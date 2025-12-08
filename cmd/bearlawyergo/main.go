@@ -7,6 +7,7 @@ import (
 
 	"rsandz/bearlawyergo/internal/cli"
 	llmHandler "rsandz/bearlawyergo/internal/handler/llm"
+	"rsandz/bearlawyergo/internal/handler/validation"
 	"rsandz/bearlawyergo/internal/logging"
 	"rsandz/bearlawyergo/internal/orchestrator"
 
@@ -34,6 +35,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	validationHandler := validation.NewHandler()
 	llmHandler, err := llmHandler.NewLLMHandler(llm, logger)
 	if err != nil {
 		logger.Error("Failed to create LLM handler", "error", err)
@@ -41,6 +43,7 @@ func main() {
 	}
 
 	handlers := []orchestrator.Handler{
+		validationHandler,
 		llmHandler,
 	}
 

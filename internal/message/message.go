@@ -17,6 +17,8 @@ type Request struct {
 // Represents a response to a message.
 type Response struct {
 	ResponseMessage Message
+	// Whether the message should continue to be handled by other handlers.
+	ShouldContinueHandling bool
 }
 
 // Represents a chat message.

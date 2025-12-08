@@ -34,7 +34,8 @@ func NewOrchestrator(handlers []Handler, logger *slog.Logger) *Orchestrator {
 
 func (orchestrator *Orchestrator) Handle(ctx context.Context, msg *message.Request) (*message.Response, error) {
 	traceID, err := generateTraceID()
-	response := &message.Response{}
+	response := &message.Response{ShouldContinueHandling: true}
+
 	if err != nil {
 		orchestrator.logger.Error("Failed to generate trace ID", "error", err)
 		// Fallback to no trace ID or some default? Let's proceed with empty or error
@@ -44,6 +45,7 @@ func (orchestrator *Orchestrator) Handle(ctx context.Context, msg *message.Reque
 	ctx = context.WithValue(ctx, logging.TraceIDKey, traceID)
 
 	orchestrator.logger.InfoContext(ctx, "Orchestrator received message", "content", msg.RequestMessage.Content)
+	messageWasHandled := false
 	for _, h := range orchestrator.handlers {
 		if h.CanHandle(ctx, msg) {
 			orchestrator.logger.InfoContext(ctx, "Handler found for message", "handler_type", fmt.Sprintf("%T", h))
@@ -51,11 +53,20 @@ func (orchestrator *Orchestrator) Handle(ctx context.Context, msg *message.Reque
 				orchestrator.logger.ErrorContext(ctx, "Handler failed to handle message", "error", err)
 				return nil, err
 			}
-			return response, nil
+			messageWasHandled = true
+
+			if !response.ShouldContinueHandling {
+				orchestrator.logger.InfoContext(ctx, "Halting request handling early")
+				break
+			}
 		}
 	}
-	orchestrator.logger.WarnContext(ctx, "No handler found for message", "content", msg.RequestMessage.Content)
-	return nil, ErrNoHandlerFound
+
+	if !messageWasHandled {
+		orchestrator.logger.WarnContext(ctx, "No handler found for message", "content", msg.RequestMessage.Content)
+		return nil, ErrNoHandlerFound
+	}
+	return response, nil
 }
 
 func generateTraceID() (string, error) {
