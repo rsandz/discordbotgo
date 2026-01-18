@@ -22,6 +22,7 @@ go.work
 
 # Executable
 /bearlawyergo
+/bearlawyer
 /main
 
 # Logs
