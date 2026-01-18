@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"rsandz/bearlawyergo/internal/message"
 	"rsandz/bearlawyergo/internal/orchestrator"
+	"slices"
 
 	discordgo "github.com/bwmarrin/discordgo"
 )
@@ -38,12 +39,6 @@ func (b *Bot) Close() error {
 func (b *Bot) handleMessage(session *discordgo.Session, m *discordgo.MessageCreate) {
 	ctx := context.Background()
 
-	if m.Author.ID == b.discord.State.User.ID {
-		// Ignore messages from self
-		b.logger.Debug("Received message from self", "content", m.Content)
-		return
-	}
-
 	if !b.shouldRespond(m.Message) {
 		return
 	}
@@ -52,19 +47,7 @@ func (b *Bot) handleMessage(session *discordgo.Session, m *discordgo.MessageCrea
 
 	session.ChannelTyping(m.ChannelID)
 
-	messages, _ := b.discord.ChannelMessages(m.ChannelID, 10, m.ID, "", "")
-
-	var history []message.Message
-	// Discord returns messages from newest to oldest. Iterate backwards to keep chronological order.
-	for i := len(messages) - 1; i >= 0; i-- {
-		dm := messages[i]
-		role := message.UserRole
-		if dm.Author.ID == b.discord.State.User.ID {
-			role = message.BotRole
-		}
-		history = append(history, *message.NewMessage(dm.Author.Username, dm.Content, role))
-	}
-
+	history := b.resolveHistory(m.ChannelID)
 	msg := message.NewMessage(m.Author.Username, m.Content, message.UserRole)
 	req := message.NewRequest(
 		*msg,
@@ -82,14 +65,29 @@ func (b *Bot) handleMessage(session *discordgo.Session, m *discordgo.MessageCrea
 }
 
 func (b *Bot) shouldRespond(m *discordgo.Message) bool {
-	mentionsBot := false
-	for _, mention := range m.Mentions {
-		if mention.ID == b.discord.State.User.ID {
-			mentionsBot = true
-			break
-		}
+	if m.Author.ID == b.discord.State.User.ID {
+		b.logger.Debug("Received message from self", "content", m.Content)
+		return false
 	}
-	return mentionsBot
+	return slices.ContainsFunc(m.Mentions, func(mention *discordgo.User) bool {
+		return mention.ID == b.discord.State.User.ID
+	})
+}
+
+func (b *Bot) resolveHistory(channelID string) []message.Message {
+	var history []message.Message
+	messages, _ := b.discord.ChannelMessages(channelID, 10, "", "", "")
+
+	// Discord returns messages from newest to oldest. Iterate backwards to keep chronological order.
+	for i := len(messages) - 1; i >= 0; i-- {
+		dm := messages[i]
+		role := message.UserRole
+		if dm.Author.ID == b.discord.State.User.ID {
+			role = message.BotRole
+		}
+		history = append(history, *message.NewMessage(dm.Author.Username, dm.Content, role))
+	}
+	return history
 }
 
 func (b *Bot) handleError(ctx context.Context, channelId string, err error) {
