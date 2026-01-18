@@ -27,3 +27,5 @@ go.work
 # Logs
 /*.log
 
+# IDE
+.vscode/
