@@ -20,7 +20,7 @@ func TestValidationHandler(t *testing.T) {
 		},
 		{
 			name:                     "Message too long",
-			inputRequest:             buildRequestForString(strings.Repeat("a", 160)),
+			inputRequest:             buildRequestForString(strings.Repeat("a", 501)),
 			expectedPassesValidation: false,
 		},
 		{
