@@ -1,0 +1,11 @@
+services:
+  bearlawyergo:
+    build: .
+    command: ["-discord"]
+    env_file:
+      - .env
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./bearlawyer.log:/app/bearlawyer.log
