@@ -6,7 +6,7 @@ import (
 	"rsandz/bearlawyergo/internal/message"
 )
 
-const MaxMessageLength = 120
+const MaxMessageLength = 500
 
 type Handler struct{}
 
