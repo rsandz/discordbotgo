@@ -2,10 +2,15 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"rsandz/bearlawyergo/internal/cli"
+	"rsandz/bearlawyergo/internal/discord"
 	llmHandler "rsandz/bearlawyergo/internal/handler/llm"
 	"rsandz/bearlawyergo/internal/handler/validation"
 	"rsandz/bearlawyergo/internal/logging"
@@ -48,7 +53,38 @@ func main() {
 	}
 
 	orch := orchestrator.NewOrchestrator(handlers, logger)
-	repl := cli.NewREPL(orch, logger)
+	// Parse flags
+	useDiscord := flag.Bool("discord", false, "Run as Discord bot")
+	flag.Parse()
 
-	repl.Start(ctx)
+	if *useDiscord {
+		token := os.Getenv("DISCORD_TOKEN")
+		if token == "" {
+			logger.Error("DISCORD_TOKEN environment variable not set")
+			os.Exit(1)
+		}
+
+		bot, err := discord.NewBot(token, orch, logger)
+		if err != nil {
+			logger.Error("Failed to create Discord bot", "error", err)
+			os.Exit(1)
+		}
+
+		if err := bot.Start(); err != nil {
+			logger.Error("Failed to start Discord bot", "error", err)
+			os.Exit(1)
+		}
+		defer bot.Close()
+
+		logger.Info("Discord bot running.")
+		fmt.Println("Running. Press CTRL-C to exit.")
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+		<-stop
+
+		logger.Info("Shutting down Discord bot...")
+	} else {
+		repl := cli.NewREPL(orch, logger)
+		repl.Start(ctx)
+	}
 }
